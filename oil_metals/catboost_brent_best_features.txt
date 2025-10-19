@@ -1,0 +1,44 @@
+CatBoost Brent Best Model Features
+=================================
+
+Best config: {'feature_set': 'engineered', 'engineering': 'interaction', 'depth': 4, 'learning_rate': 0.1, 'iterations': 1500, 'l2_leaf_reg': 1}
+
+Feature List:
+- Date
+- Brent_Close
+- SAUDI_ENERG_Open
+- SAUDI_ENERG_High
+- SAUDI_ENERG_SENTI
+- SAUDI_ENERG_Change %
+- GOLD_Future_Open
+- GOLD_Future_High
+- GOLD_Future_Low
+- GOLD_Future_Vol.
+- GOLD_Future_Gold_Change %
+- Natural Gas Future_Open
+- Natural Gas Future_High
+- Natural Gas Future_Low
+- Natural Gas Future_Vol
+- Natural Gas Future_Change %
+- Sentiment_Price_change
+- Sentiment_Price
+- Sentiment_Daily_Sum_RavenPack
+- Sentiment_Csum_RavenPack
+- Sentiment_Daily_Sum_FinBERT
+- Sentiment_Csum_FinBERT
+- Sentiment_Daily_Sum_CrudeBERT
+- Sentiment_Csum_CrudeBERT
+- Sentiment_Daily_Sum_CrudeBERT_GT
+- Sentiment_Csum_CrudeBERT_GT
+- Sentiment_Daily_Sum_CrudeBERT_Plus
+- Sentiment_Csum_CrudeBERT_Plus
+- Sentiment_Daily_Sum_CrudeBERT_Plus_GT
+- Sentiment_Csum_CrudeBERT_Plus_GT
+- USD_Open
+- USD_High
+- USD_Low
+- SMA_3
+- SMA_6
+- SMA_12
+- Date_numeric
+- interaction_term

@@ -1,0 +1,152 @@
+[
+  {
+    "article_index": 1,
+    "title": "Sugar Prices Rise as Global Demand Increases",
+    "expected_pass": true,
+    "actual_pass": true,
+    "reason": "Passed all triage filters",
+    "passed": true,
+    "type": "triage_filter"
+  },
+  {
+    "article_index": 2,
+    "title": "Brazil Sugar Crop Expected to Break Records in 2024",
+    "expected_pass": true,
+    "actual_pass": true,
+    "reason": "Passed secondary filter: event+agriculture context",
+    "passed": true,
+    "type": "triage_filter"
+  },
+  {
+    "article_index": 3,
+    "title": "India Imposes New Sugar Export Restrictions",
+    "expected_pass": true,
+    "actual_pass": true,
+    "reason": "Passed all triage filters",
+    "passed": true,
+    "type": "triage_filter"
+  },
+  {
+    "article_index": 4,
+    "title": "Technology Stocks Rally in Tech Sector",
+    "expected_pass": false,
+    "actual_pass": false,
+    "reason": "No main sugar-related keywords found",
+    "passed": true,
+    "type": "triage_filter"
+  },
+  {
+    "article_index": 1,
+    "description": "Basic typo correction",
+    "original_text": "Sugar prcies are rising due to global demand. This afects markets worldwide.",
+    "error": "'LanguageNormalizationPipeline' object has no attribute 'process_text'",
+    "expected_text": "Sugar prices are rising due to global demand. This affects markets worldwide.",
+    "passed": false,
+    "type": "language_normalization"
+  },
+  {
+    "article_index": 2,
+    "description": "Symbol and abbreviation normalization",
+    "original_text": "Brazil's sugar production = 50M tons. Price: $500/ton. UP 10% vs last year.",
+    "error": "'LanguageNormalizationPipeline' object has no attribute 'process_text'",
+    "expected_text": "Brazil's sugar production 50 million tons. Price 500 dollars per ton. Up 10 percent versus last year.",
+    "passed": false,
+    "type": "language_normalization"
+  },
+  {
+    "article_index": 3,
+    "description": "Abbreviation expansion",
+    "original_text": "Govt. restricts sugar exports. Domestic supply priority. Market impact significant.",
+    "error": "'LanguageNormalizationPipeline' object has no attribute 'process_text'",
+    "expected_text": "Government restricts sugar exports. Domestic supply priority. Market impact significant.",
+    "passed": false,
+    "type": "language_normalization"
+  },
+  {
+    "test_type": "html_cleaning",
+    "test_index": 1,
+    "description": "HTML cleaning with nested tags",
+    "input": "<div class=\"article\"><h2>Sugar Market Update</h2><p>Prices <strong>increased</strong> by 5%.</p></div>",
+    "output": "Sugar Market Update Prices increased by 5%.",
+    "expected": "Sugar Market Update Prices increased by 5%.",
+    "passed": true
+  },
+  {
+    "test_type": "html_cleaning",
+    "test_index": 2,
+    "description": "HTML cleaning with script removal",
+    "input": "<script>adsf</script><p>Important sugar news content.</p>",
+    "output": "Important sugar news content.",
+    "expected": "Important sugar news content.",
+    "passed": true
+  },
+  {
+    "test_type": "keyword_matching",
+    "test_index": 1,
+    "description": "Keyword matching with multiple keywords",
+    "text": "Sugar commodity trading shows positive trends",
+    "keywords": [
+      "sugar",
+      "commodity"
+    ],
+    "result": true,
+    "expected": true,
+    "passed": true
+  },
+  {
+    "test_type": "keyword_matching",
+    "test_index": 2,
+    "description": "Keyword matching with no matches",
+    "text": "General market news without specific commodities",
+    "keywords": [
+      "sugar",
+      "commodity"
+    ],
+    "result": false,
+    "expected": false,
+    "passed": true
+  },
+  {
+    "test_type": "search_query",
+    "test_index": 1,
+    "description": "Search query with multiple topics",
+    "query": "(topic:120000373) OR (topic:120000386)",
+    "expected": "(topic:120000373) OR (topic:120000386)",
+    "passed": true
+  },
+  {
+    "article_index": 1,
+    "title": "Sugar Prices Rise as Global Demand Increases",
+    "pipeline_stage": "complete",
+    "status": "processed",
+    "article_id": "2d6dc370b92f873d7afd735dcfce9835",
+    "triage_score": 0,
+    "passed": true
+  },
+  {
+    "article_index": 2,
+    "title": "Brazil Sugar Crop Expected to Break Records in 2024",
+    "pipeline_stage": "complete",
+    "status": "processed",
+    "article_id": "86fde9dea1555060528affcac5c107c9",
+    "triage_score": 0,
+    "passed": true
+  },
+  {
+    "article_index": 3,
+    "title": "India Imposes New Sugar Export Restrictions",
+    "pipeline_stage": "complete",
+    "status": "processed",
+    "article_id": "a974f53f727ffa67a8b87396a7a7b5fd",
+    "triage_score": 0,
+    "passed": true
+  },
+  {
+    "article_index": 4,
+    "title": "Technology Stocks Rally in Tech Sector",
+    "pipeline_stage": "triage_filter",
+    "status": "filtered_out",
+    "reason": "No main sugar-related keywords found",
+    "passed": true
+  }
+]

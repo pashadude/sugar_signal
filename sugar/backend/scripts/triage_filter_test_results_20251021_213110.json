@@ -1,0 +1,267 @@
+[
+  {
+    "test_case": 1,
+    "description": "Valid sugar news with market context",
+    "input": "Brazilian sugar exports are rising due to market price changes.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed all triage filters",
+    "matched_zones": [
+      "market",
+      "region"
+    ],
+    "matched_keywords": [
+      "price",
+      "Brazilian"
+    ],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 2,
+    "description": "Non-sugar commodity news",
+    "input": "Copper prices are rising in the commodity market.",
+    "expected": false,
+    "actual": false,
+    "passed": true,
+    "reason": "Excluded by exclusion keyword: '\\bcopper\\b'",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 3,
+    "description": "Sugar news with weather event",
+    "input": "Sugar production in Brazil affected by drought conditions.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed secondary filter: event+agriculture context",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 4,
+    "description": "Generic market news without sugar context",
+    "input": "Generic market news about inflation and interest rates.",
+    "expected": false,
+    "actual": false,
+    "passed": false,
+    "reason": "Excluded by exclusion keyword: '\\bgeneric\\ market\\ news\\b'",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 5,
+    "description": "Too short text",
+    "input": "sugar",
+    "expected": false,
+    "actual": false,
+    "passed": true,
+    "reason": "Text too short (<20 chars)",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 6,
+    "description": "Empty text",
+    "input": "",
+    "expected": false,
+    "actual": false,
+    "passed": true,
+    "reason": "Text is empty or not a string",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 7,
+    "description": "Sugar news with region and weather context",
+    "input": "Brazil's Center-South sugar production increases due to favorable weather conditions.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed secondary filter: event+agriculture context",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 8,
+    "description": "Sugar news with organization and production context",
+    "input": "UNICA reports Brazilian sugar production at record levels.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed all triage filters",
+    "matched_zones": [
+      "market",
+      "supply_chain",
+      "region"
+    ],
+    "matched_keywords": [
+      "production",
+      "production",
+      "Brazilian"
+    ],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 9,
+    "description": "Sugar news with futures and export context",
+    "input": "Sugar futures contract prices surge on export demand.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed all triage filters",
+    "matched_zones": [
+      "market",
+      "supply_chain"
+    ],
+    "matched_keywords": [
+      "futures",
+      "demand"
+    ],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 10,
+    "description": "Non-sugar agricultural commodities",
+    "input": "Wheat and corn prices affected by global supply chain issues.",
+    "expected": false,
+    "actual": false,
+    "passed": true,
+    "reason": "Excluded by exclusion keyword: '\\bwheat\\b'",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 11,
+    "description": "Sugar beet news with weather event",
+    "input": "Sugar beet harvest in Europe impacted by frost damage.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed secondary filter: event+agriculture context",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 12,
+    "description": "Sugar-related ethanol production",
+    "input": "Ethanol production from sugarcane increases in Brazil.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed secondary filter: event+agriculture context",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 13,
+    "description": "Sugar contract with region context",
+    "input": "NY11 sugar prices rise on supply concerns from India.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed all triage filters",
+    "matched_zones": [
+      "market",
+      "supply_chain",
+      "region"
+    ],
+    "matched_keywords": [
+      "supply",
+      "supply",
+      "India"
+    ],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 14,
+    "description": "Precious metals without sugar context",
+    "input": "Gold and silver prices surge as safe haven assets.",
+    "expected": false,
+    "actual": false,
+    "passed": true,
+    "reason": "Excluded by exclusion keyword: '\\bgold\\b'",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 15,
+    "description": "Sugar production with region context",
+    "input": "Sugar mill in Thailand increases production capacity.",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed all triage filters",
+    "matched_zones": [
+      "market",
+      "supply_chain",
+      "region"
+    ],
+    "matched_keywords": [
+      "production",
+      "production",
+      "Thailand"
+    ],
+    "extracted_pricing": []
+  },
+  {
+    "test_case": 16,
+    "description": "Structured sugar pricing data",
+    "input": "Contract: NY11\nDate: 2024-01-15\nPrice: 18.50\nVolume: 125,000\nIndex: Sugar #11",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed all triage filters",
+    "matched_zones": [
+      "market"
+    ],
+    "matched_keywords": [
+      "contract"
+    ],
+    "extracted_pricing": [
+      "Contract: NY11",
+      "Index: Sugar #11"
+    ]
+  },
+  {
+    "test_case": 17,
+    "description": "Bullet point sugar pricing",
+    "input": "* Sugar futures: 18.75 cents/lb\n* Volume: 150,000 tons\n* Settlement: +0.25",
+    "expected": true,
+    "actual": true,
+    "passed": true,
+    "reason": "Passed all triage filters",
+    "matched_zones": [
+      "market"
+    ],
+    "matched_keywords": [
+      "futures"
+    ],
+    "extracted_pricing": [
+      "* Sugar futures: 18.75 cents/lb"
+    ]
+  },
+  {
+    "test_case": 18,
+    "description": "Non-sugar structured pricing",
+    "input": "1. Copper contract: $8,500\n2. Gold price: $1,950\n3. Silver volume: 50,000",
+    "expected": false,
+    "actual": false,
+    "passed": true,
+    "reason": "Excluded by exclusion keyword: '\\bcopper\\b'",
+    "matched_zones": [],
+    "matched_keywords": [],
+    "extracted_pricing": []
+  }
+]

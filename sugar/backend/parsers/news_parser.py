@@ -77,7 +77,7 @@ def contains_keywords(text, keywords):
             return True
     return False
 
-def build_search_query(topic_ids, person_entities, company_entities):
+def build_search_query(topic_ids, person_entities, company_entities, sugar_sources=None):
     """Build search query string for OPOINT API"""
     query_parts = []
     
@@ -107,6 +107,14 @@ def build_search_query(topic_ids, person_entities, company_entities):
         else:
             query_parts.append(f"{' AND '.join(company_conditions)}")
     
+    # Add sugar source conditions if provided
+    if sugar_sources:
+        source_conditions = [f'(source:"{source}")' for source in sugar_sources]
+        if len(source_conditions) == 1:
+            query_parts.append(source_conditions[0])
+        else:
+            query_parts.append(f"({' OR '.join(source_conditions)})")
+    
     # Combine all parts with AND
     if query_parts:
         return " AND ".join(query_parts)
@@ -120,7 +128,7 @@ def generate_article_id(url, title, published_date, asset):
 
 
 
-def save_to_database(articles_df, search_metadata, asset):
+def save_to_database(articles_df, search_metadata, asset=None):
     """Save articles to ClickHouse database (only trusted sources)"""
     try:
         # Filter out non-trusted sources before saving
@@ -135,12 +143,15 @@ def save_to_database(articles_df, search_metadata, asset):
         # Prepare data for insertion
         records = []
         for _, row in filtered_df.iterrows():
+            # Determine asset value - use individual article asset if available, otherwise use the provided asset
+            article_asset = row.get('asset', asset) if 'asset' in row else asset
+            
             # Generate unique ID for the article (including asset for proper deduplication)
             article_id = generate_article_id(
-                row.get('url', ''), 
-                row.get('title', ''), 
+                row.get('url', ''),
+                row.get('title', ''),
                 row.get('published_date', ''),
-                asset
+                article_asset
             )
             
             # Prepare metadata as JSON
@@ -149,7 +160,9 @@ def save_to_database(articles_df, search_metadata, asset):
                 'search_person_entities': search_metadata.get('person_entities'),
                 'search_company_entities': search_metadata.get('company_entities'),
                 'search_keywords': search_metadata.get('keywords'),
-                'score': row.get('score')
+                'score': row.get('score'),
+                'triage_passed': row.get('triage_passed', None),
+                'triage_reason': row.get('triage_reason', None)
             }
             
             # Parse published_date to datetime
@@ -172,7 +185,7 @@ def save_to_database(articles_df, search_metadata, asset):
                 row.get('clean_text', ''),
                 json.dumps(metadata),
                 created_at,
-                asset
+                article_asset
             )
             records.append(record)
         

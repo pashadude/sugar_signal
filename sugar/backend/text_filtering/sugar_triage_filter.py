@@ -81,6 +81,7 @@ if not logger.hasHandlers():
 
 def triage_filter(
     text: str,
+    title: str = None,
     media_topic_passed: bool = True,
     min_length: int = 20,
     max_length: int = None
@@ -89,6 +90,7 @@ def triage_filter(
     Applies Sugar Sentiment triage filtering logic.
     Args:
         text: Input text (str).
+        title: Input title (str, optional).
         media_topic_passed: Whether IPTC MediaTopic pre-filtering passed (bool).
         min_length: Minimum text length for quality control.
         max_length: Maximum text length for quality control.
@@ -98,12 +100,15 @@ def triage_filter(
     # Only log full text if not running as part of sugar_news_fetcher CLI
     import os
     if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-        logger.debug("TRIAGE INPUT: %r", text)
-        logger.debug("STAGE: INPUT | TEXT: %r", text)
+        logger.debug("TRIAGE INPUT: TEXT=%r, TITLE=%r", text, title)
+        logger.debug("STAGE: INPUT | TEXT: %r, TITLE: %r", text, title)
     # --- Begin detailed per-stage logging ---
     normalized_text = text
+    normalized_title = title if title else ""
+    # Combine title and text for keyword matching
+    combined_content = f"{title} {text}" if title else text
     if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-        logger.debug("STAGE: INPUT | TEXT: %r", normalized_text)
+        logger.debug("STAGE: INPUT | COMBINED: %r", combined_content)
     result = {
         "passed": False,
         "reason": "",
@@ -116,42 +121,42 @@ def triage_filter(
     if not media_topic_passed:
         result["reason"] = "IPTC MediaTopic pre-filtering failed"
         if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r", result["reason"], normalized_text)
+            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
         else:
             logger.debug("REJECT: %s", result["reason"])
         return result
     if not isinstance(text, str) or not text.strip():
         result["reason"] = "Text is empty or not a string"
         if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r", result["reason"], normalized_text)
+            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
         else:
             logger.debug("REJECT: %s", result["reason"])
         return result
     if len(text) < min_length:
         result["reason"] = f"Text too short (<{min_length} chars)"
         if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r", result["reason"], normalized_text)
+            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
         else:
             logger.debug("REJECT: %s", result["reason"])
         return result
     if max_length is not None and len(text) > max_length:
         result["reason"] = f"Text too long (>{max_length} chars)"
         if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r", result["reason"], normalized_text)
+            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
         else:
             logger.debug("REJECT: %s", result["reason"])
         return result
 
-    # Check for main keywords (must match at least one)
-    main_match = text_matches_keywords(text, KEYWORD_PATTERNS["main"])
+    # Check for main keywords (must match at least one) in combined title and text
+    main_match = text_matches_keywords(combined_content, KEYWORD_PATTERNS["main"])
     
     # If no main keywords, check for exclusion keywords
     if not main_match:
         for pat in EXCLUSION_PATTERNS:
-            if pat.search(text):
+            if pat.search(combined_content):
                 result["reason"] = f"Excluded by exclusion keyword: '{pat.pattern}'"
                 if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-                    logger.debug("REJECT: %s | TEXT: %r", result["reason"], normalized_text)
+                    logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
                 else:
                     logger.debug("REJECT: %s", result["reason"])
                 return result
@@ -159,21 +164,21 @@ def triage_filter(
         # If no main keywords and no exclusion keywords, reject
         result["reason"] = "No main sugar-related keywords found"
         if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r", result["reason"], normalized_text)
+            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
         else:
             logger.debug("REJECT: %s", result["reason"])
         return result
     
     # If main keywords found, check for secondary filter (event+agriculture)
-    event_match = text_matches_keywords(text, KEYWORD_PATTERNS["event"])
+    event_match = text_matches_keywords(combined_content, KEYWORD_PATTERNS["event"])
     agri_match = (
-        text_matches_keywords(text, KEYWORD_PATTERNS["market"]) or
-        text_matches_keywords(text, KEYWORD_PATTERNS["supply_chain"])
+        text_matches_keywords(combined_content, KEYWORD_PATTERNS["market"]) or
+        text_matches_keywords(combined_content, KEYWORD_PATTERNS["supply_chain"])
     )
     if event_match and agri_match:
         result["reason"] = "Passed secondary filter: event+agriculture context"
         if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("PASS: %s | TEXT: %r", result["reason"], normalized_text)
+            logger.debug("PASS: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
         else:
             logger.debug("PASS: %s", result["reason"])
         result["passed"] = True
@@ -189,7 +194,7 @@ def triage_filter(
         zone_patterns = KEYWORD_PATTERNS[zone]
         zone_matched = False
         for pat, kw in zip(zone_patterns, KEYWORDS[zone]):
-            if pat.search(text):
+            if pat.search(combined_content):
                 matched_zones.append(zone)
                 matched_keywords.append(kw)
                 logger.debug("STAGE: CONTEXT_ZONE | ZONE: %s | MATCHED: %s", zone, kw)
@@ -201,7 +206,7 @@ def triage_filter(
     if not matched_zones:
         result["reason"] = "No context zone keywords found"
         if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r", result["reason"], normalized_text)
+            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
         else:
             logger.debug("REJECT: %s", result["reason"])
         return result

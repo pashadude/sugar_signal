@@ -182,9 +182,13 @@ class LanguageNormalizationPipeline:
 
     def _correct_typos(self, text: str) -> str:
         if self.sym_spell:
-            suggestions = self.sym_spell.lookup_compound(text, Verbosity.TOP)
-            if suggestions:
-                return suggestions[0].term
+            try:
+                # Use integer value for Verbosity.TOP to avoid comparison issues
+                suggestions = self.sym_spell.lookup_compound(text, 1)  # 1 corresponds to Verbosity.TOP
+                if suggestions:
+                    return suggestions[0].term
+            except Exception as e:
+                print(f"[WARN] Typo correction failed: {e}. Continuing with original text.")
         return text
 
     def _map_slang_synonyms(self, text: str) -> str:

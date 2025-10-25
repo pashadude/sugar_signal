@@ -66,7 +66,7 @@ class OpointAPI:
             logger.error(f"Error searching for site '{site_name}': {str(e)}")
             return {"error": str(e)}
     
-    def search_articles(self, 
+    def search_articles(self,
                        site_id: Optional[str] = None,
                        search_text: Optional[str] = None,
                        language: Optional[str] = None,
@@ -76,7 +76,8 @@ class OpointAPI:
                        topic_ids: Optional[List[str]] = None,
                        media_topic_ids: Optional[List[str]] = None,
                        start_date: Optional[datetime] = None,
-                       end_date: Optional[datetime] = None) -> pd.DataFrame:
+                       end_date: Optional[datetime] = None,
+                       timeout: int = 30) -> pd.DataFrame:
         """
         Search for articles from a specific site or across all sites with optional text matching.
         If no site_id is provided, searches across all available sites.
@@ -178,7 +179,8 @@ class OpointAPI:
             })
         
         try:
-            response = requests.post(url, headers=self.headers, json=payload)
+            logger.debug(f"Making API request with timeout: {timeout}s")
+            response = requests.post(url, headers=self.headers, json=payload, timeout=timeout)
             response.raise_for_status()
             
             data = response.json()
@@ -251,7 +253,7 @@ class OpointAPI:
             logger.error(f"Error searching for articles: {str(e)}")
             return pd.DataFrame()
     
-    def search_site_and_articles(self, 
+    def search_site_and_articles(self,
                                 site_name: Optional[str] = None,
                                 search_text: Optional[str] = None,
                                 language: Optional[str] = None,
@@ -261,7 +263,8 @@ class OpointAPI:
                                 topic_ids: Optional[List[str]] = None,
                                 media_topic_ids: Optional[List[str]] = None,
                                 start_date: Optional[datetime] = None,
-                                end_date: Optional[datetime] = None) -> pd.DataFrame:
+                                end_date: Optional[datetime] = None,
+                                timeout: int = 30) -> pd.DataFrame:
         """
         Combined method to search for articles, optionally from a specific site.
         If no site_name is provided, searches across all sites.
@@ -322,5 +325,6 @@ class OpointAPI:
             topic_ids=topic_ids,
             media_topic_ids=media_topic_ids,
             start_date=start_date,
-            end_date=end_date
-        ) 
+            end_date=end_date,
+            timeout=timeout
+        )

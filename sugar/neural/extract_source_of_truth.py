@@ -12,7 +12,8 @@ from datetime import datetime
 
 def extract_source_of_truth_data(output_file="source_of_truth_sugar.csv", commodity_filter="Sugar"):
     """
-    Extract data from news.source_of_truth table with non-empty text fields.
+    Extract ALL data from news.source_of_truth table for a specific commodity,
+    including records with empty text fields.
     
     Args:
         output_file: Name of the output CSV file
@@ -40,9 +41,9 @@ def extract_source_of_truth_data(output_file="source_of_truth_sugar.csv", commod
 
         print(f"Connected to ClickHouse. Extracting data for commodity: {commodity_filter}")
 
-        # Build query to extract data with non-empty text fields
+        # Build query to extract ALL data including empty text fields
         query = f"""
-            SELECT 
+            SELECT
                 timestamp_created,
                 timestamp_added,
                 commodity,
@@ -53,9 +54,7 @@ def extract_source_of_truth_data(output_file="source_of_truth_sugar.csv", commod
                 text,
                 title
             FROM news.source_of_truth
-            WHERE 
-                text != '' 
-                AND commodity = '{commodity_filter}'
+            WHERE commodity = '{commodity_filter}'
             ORDER BY timestamp_created
         """
 
@@ -66,7 +65,7 @@ def extract_source_of_truth_data(output_file="source_of_truth_sugar.csv", commod
             print("No data found matching the criteria.")
             return 0
 
-        print(f"Found {len(result)} records with non-empty text fields for commodity: {commodity_filter}")
+        print(f"Found {len(result)} total records for commodity: {commodity_filter}")
 
         # Define CSV headers
         headers = [

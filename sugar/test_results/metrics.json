@@ -1,0 +1,21 @@
+{
+    "combined_score": 0.0,
+    "public": {
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "num_trades": 0,
+        "win_rate": 0.0
+    },
+    "private": {
+        "mean_return": 0.0,
+        "std_return": 0.0,
+        "drawdown_penalty": 0.0
+    },
+    "text_feedback": "Strategy Performance Summary:\n- Sharpe Ratio: 0.000\n- Max Drawdown: 0.00%\n- Total Return: 0.00%\n- Number of Trades: 0\n- Win Rate: 0.00%\n\nCombined Score: 0.000\n(Formula: Sharpe - 0.5 * |MaxDrawdown|)",
+    "execution_time_mean": 0.084102249937132,
+    "execution_time_std": 0.0,
+    "num_valid_runs": 1,
+    "num_invalid_runs": 0,
+    "all_validation_errors": []
+}

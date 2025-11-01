@@ -55,6 +55,21 @@ if not main_match:
 ### 4. Direct Pass on Main Keywords ✨ **NEW SIMPLIFIED LOGIC**
 ```python
 # IF main keywords found and no exclusion keywords -> PASS IMMEDIATELY
+# This allows mixed commodity articles (sugar + other commodities) to be accepted
+if main_match:
+    result["reason"] = "Passed main keywords check - mixed commodity articles allowed"
+    result["passed"] = True
+    # Continue to optional context zones and pricing extraction
+```
+
+**✨ NEW BEHAVIOR**: Mixed commodity articles (containing both sugar and other commodities) are now accepted. The exclusion filter is only applied when NO main sugar keywords are found. This means:
+- Articles with "sugar" + "copper" → ACCEPTED
+- Articles with "sugar" + "oil" → ACCEPTED
+- Articles with only "copper" → REJECTED
+
+### 4. Direct Pass on Main Keywords ✨ **NEW SIMPLIFIED LOGIC**
+```python
+# IF main keywords found and no exclusion keywords -> PASS IMMEDIATELY
 if main_match:
     result["reason"] = "Passed main keywords check"
     result["passed"] = True
@@ -194,13 +209,13 @@ Text: "Sugar output has seen significant growth in the South American country."
 Result: PASS ✓
 ```
 
-### ❌ Example 4: Mixed Commodity Article
+### ✅ Example 4: Mixed Commodity Article
 ```
 Title: "Sugar and oil prices fluctuate"
 Text: "Both sugar and copper commodities have seen price increases this month."
 - Main keywords: "sugar" ✓
-- Exclusion keywords: "copper" ✗
-Result: REJECT (correctly excluded) ✓
+- Exclusion keywords: "copper" (ignored when main keywords present) ✓
+Result: ACCEPT (mixed commodity articles now allowed) ✓
 ```
 
 ### ❌ Example 5: Non-Sugar Article
@@ -238,6 +253,7 @@ Result: Considered duplicates (second one removed) ✓
 3. **Simplified pass condition** - main keywords + no exclusion keywords = pass
 4. **✨ Enhanced filtering to check both title and text** for keywords and context zones
 5. **✨ Enhanced deduplication to consider source information** when identifying duplicates
+6. **✨ NEW: Allow mixed commodity articles** - articles containing sugar AND other commodities are now accepted
 
 ### Benefits:
 1. **Higher recall** - more valid sugar articles captured
@@ -246,6 +262,7 @@ Result: Considered duplicates (second one removed) ✓
 4. **Better user experience** - fewer false negatives
 5. **✨ Improved article coverage** - articles with sugar keywords in title OR text are now captured
 6. **✨ Better source diversity** - articles with same content from different sources are preserved
+7. **✨ NEW: Comprehensive commodity coverage** - mixed commodity articles (sugar + other commodities) are now included, providing more complete market insights
 
 ### Risk Mitigation:
 1. **Exclusion keywords remain** to prevent non-sugar content

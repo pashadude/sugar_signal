@@ -78,10 +78,25 @@ def contains_keywords(text, keywords):
     return False
 
 def build_search_query(topic_ids, person_entities, company_entities, sugar_sources=None):
-    """Build search query string for OPOINT API"""
+    """
+    Build search query string for OPOINT API.
+    
+    CRITICAL: Supports DOUBLE FILTERING by both MEDIA_ID (via sugar_sources) and MEDIA_TOPIC_ID (via topic_ids).
+    This ensures articles must match both criteria to be returned.
+    
+    Args:
+        topic_ids (List[str]): List of MEDIA_TOPIC_IDs for double filtering
+        person_entities (List[str]): List of person entities to search for
+        company_entities (List[str]): List of company entities to search for
+        sugar_sources (List[str], optional): List of sugar source names for filtering
+        
+    Returns:
+        str: Search query string for OPOINT API
+    """
     query_parts = []
     
-    # Add topic conditions (prefix with "1" to create TARGET_MEDIATOPIC_ID)
+    # CRITICAL FIX: Add topic conditions (prefix with "1" to create TARGET_MEDIATOPIC_ID)
+    # This is the first part of double filtering - MEDIA_TOPIC_ID
     if topic_ids:
         topic_conditions = [f"(topic:1{topic_id})" for topic_id in topic_ids]
         if len(topic_conditions) == 1:
@@ -107,7 +122,10 @@ def build_search_query(topic_ids, person_entities, company_entities, sugar_sourc
         else:
             query_parts.append(f"{' AND '.join(company_conditions)}")
     
-    # Add sugar source conditions if provided
+    # CRITICAL FIX: Add sugar source conditions if provided
+    # This is the second part of double filtering - MEDIA_ID (via source names)
+    # Note: Actual MEDIA_ID filtering is done at the API level via site_id parameter
+    # This source filtering in the query is additional reinforcement
     if sugar_sources:
         source_conditions = [f'(source:"{source}")' for source in sugar_sources]
         if len(source_conditions) == 1:
@@ -115,7 +133,7 @@ def build_search_query(topic_ids, person_entities, company_entities, sugar_sourc
         else:
             query_parts.append(f"({' OR '.join(source_conditions)})")
     
-    # Combine all parts with AND
+    # Combine all parts with AND to ensure ALL conditions must be met
     if query_parts:
         return " AND ".join(query_parts)
     else:
@@ -131,8 +149,21 @@ def generate_article_id(url, title, published_date, asset):
 def save_to_database(articles_df, search_metadata, asset=None):
     """Save articles to ClickHouse database (only trusted sources)"""
     try:
+        # DEBUG: Log input DataFrame details
+        print(f"DEBUG save_to_database: Input DataFrame shape: {articles_df.shape}")
+        if 'asset' in articles_df.columns:
+            asset_counts = articles_df['asset'].value_counts().to_dict()
+            print(f"DEBUG save_to_database: Asset distribution in input: {asset_counts}")
+        else:
+            print("DEBUG save_to_database: No 'asset' column found in input DataFrame")
+        
         # Filter out non-trusted sources before saving
         filtered_df = filter_trusted_sources(articles_df)
+        
+        print(f"DEBUG save_to_database: After source filtering - DataFrame shape: {filtered_df.shape}")
+        if 'asset' in filtered_df.columns:
+            filtered_asset_counts = filtered_df['asset'].value_counts().to_dict()
+            print(f"DEBUG save_to_database: Asset distribution after source filtering: {filtered_asset_counts}")
         
         if filtered_df.empty:
             print("No articles from trusted sources to save")
@@ -140,11 +171,19 @@ def save_to_database(articles_df, search_metadata, asset=None):
         
         client = Client(**CLICKHOUSE_NATIVE_CONFIG)
         
-        # Prepare data for insertion
-        records = []
+        # CRITICAL FIX: Check for existing duplicates in database BEFORE inserting
+        print("DEBUG save_to_database: Checking for existing duplicates in database...")
+        existing_duplicates = 0
+        records_to_insert = []
+        
         for _, row in filtered_df.iterrows():
             # Determine asset value - use individual article asset if available, otherwise use the provided asset
             article_asset = row.get('asset', asset) if 'asset' in row else asset
+            
+            # CRITICAL FIX: Only save articles with asset='Sugar'
+            if article_asset != 'Sugar':
+                print(f"DEBUG save_to_database: SKIPPING Non-Sugar article - Asset: '{article_asset}', Title: {row.get('clean_title', 'N/A')[:100]}...")
+                continue  # Skip this record - don't add to database
             
             # Generate unique ID for the article (including asset for proper deduplication)
             article_id = generate_article_id(
@@ -153,6 +192,20 @@ def save_to_database(articles_df, search_metadata, asset=None):
                 row.get('published_date', ''),
                 article_asset
             )
+            
+            # CRITICAL FIX: Check if this article already exists in the database
+            try:
+                check_query = f"SELECT COUNT(*) FROM news.news WHERE id = '{article_id}'"
+                existing_count = client.execute(check_query)[0][0]
+                
+                if existing_count > 0:
+                    existing_duplicates += 1
+                    print(f"DEBUG save_to_database: DUPLICATE FOUND - Skipping article with ID: {article_id}")
+                    print(f"  Title: {row.get('clean_title', 'N/A')[:100]}...")
+                    continue
+            except Exception as e:
+                print(f"Warning: Could not check for existing duplicate: {e}")
+                # Continue with insertion if check fails
             
             # Prepare metadata as JSON
             metadata = {
@@ -187,19 +240,38 @@ def save_to_database(articles_df, search_metadata, asset=None):
                 created_at,
                 article_asset
             )
-            records.append(record)
+            records_to_insert.append(record)
+        
+        # DEBUG: Log duplicate detection results
+        if existing_duplicates > 0:
+            print(f"DEBUG save_to_database: SUCCESS - {existing_duplicates} duplicates were detected and SKIPPED")
+        
+        # DEBUG: Log non-Sugar records that were skipped
+        non_sugar_count = len(filtered_df[filtered_df['asset'] != 'Sugar'])
+        if non_sugar_count > 0:
+            print(f"DEBUG save_to_database: SUCCESS - {non_sugar_count} non-Sugar articles were SKIPPED and NOT saved to database")
         
         # Insert into database
-        print(f"Executing INSERT with {len(records)} records...")
-        # Write to news.news table
-        result = client.execute(
-            'INSERT INTO news.news (id, datetime, source, title, text, metadata, created_at, asset) VALUES',
-            records
-        )
-        print(f"INSERT statement executed successfully, result: {result}")
-        
-        print(f"Successfully saved {len(records)} articles from trusted sources to ClickHouse database")
-        return len(records)
+        print(f"Executing INSERT with {len(records_to_insert)} records...")
+        if records_to_insert:
+            # Write to news.news table
+            result = client.execute(
+                'INSERT INTO news.news (id, datetime, source, title, text, metadata, created_at, asset) VALUES',
+                records_to_insert
+            )
+            print(f"INSERT statement executed successfully, result: {result}")
+            
+            print(f"Successfully saved {len(records_to_insert)} articles from trusted sources to ClickHouse database")
+            print(f"DEDUPLICATION SUMMARY:")
+            print(f"  - Total articles processed: {len(filtered_df)}")
+            print(f"  - Non-Sugar articles skipped: {non_sugar_count}")
+            print(f"  - Existing duplicates skipped: {existing_duplicates}")
+            print(f"  - New articles saved: {len(records_to_insert)}")
+            
+            return len(records_to_insert)
+        else:
+            print("No new articles to save (all were either non-Sugar or duplicates)")
+            return 0
         
     except Exception as e:
         print(f"Error saving to database: {e}")

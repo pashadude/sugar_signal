@@ -99,7 +99,7 @@ def get_sugar_trusted_source_ids():
         213991,  # Trading Economics
         442001,  # Chini Mandi
         464928,  # Globy
-        2737765, # CME Group
+        273765, # CME Group
         
         # Government and International Organizations
         15086,   # USDA

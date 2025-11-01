@@ -41,11 +41,11 @@ def connect_to_clickhouse():
 def count_sugar_articles(client):
     """Count sugar-related articles in the database"""
     try:
-        # Count articles with asset='sugar' or containing sugar keywords
+        # Count articles with asset='Sugar' (exact match as used in sugar_news_fetcher.py)
         query = """
         SELECT COUNT(*) as total_articles
         FROM news.news
-        WHERE lower(asset) LIKE '%sugar%'
+        WHERE asset = 'Sugar'
         """
         
         result = client.execute(query)
@@ -53,6 +53,38 @@ def count_sugar_articles(client):
         return count
     except Exception as e:
         print(f"Error counting sugar articles: {e}")
+        return 0
+
+def count_sugar_keyword_articles(client):
+    """Count articles containing sugar-related keywords in title or text"""
+    try:
+        # Define sugar-related keywords (same as in retrieve_sugar_news.py)
+        sugar_keywords = [
+            'sugar', 'sugarcane', 'sugar beet', 'sugar production',
+            'sugar price', 'sugar market', 'sugar export', 'sugar import',
+            'sugar trading', 'sugar futures', 'sugar commodity', 'raw sugar',
+            'white sugar', 'sugar refinery', 'sugar industry', 'sugar crop'
+        ]
+        
+        # Build keyword conditions for title and text
+        keyword_conditions = " OR ".join([
+            f"LOWER(title) LIKE '%{keyword}%'" for keyword in sugar_keywords
+        ] + [
+            f"LOWER(text) LIKE '%{keyword}%'" for keyword in sugar_keywords
+        ])
+        
+        # Count articles with sugar keywords in title or text
+        query = f"""
+        SELECT COUNT(*) as total_articles
+        FROM news.news
+        WHERE {keyword_conditions}
+        """
+        
+        result = client.execute(query)
+        count = result[0][0] if result else 0
+        return count
+    except Exception as e:
+        print(f"Error counting sugar keyword articles: {e}")
         return 0
 
 def delete_sugar_articles(client, dry_run=True):
@@ -66,7 +98,7 @@ def delete_sugar_articles(client, dry_run=True):
         preview_query = """
         SELECT id, datetime, source, title, asset
         FROM news.news
-        WHERE lower(asset) LIKE '%sugar%'
+        WHERE asset = 'Sugar'
         ORDER BY datetime DESC
         LIMIT 5
         """
@@ -105,7 +137,7 @@ def delete_sugar_articles(client, dry_run=True):
         # Perform deletion
         delete_query = """
         ALTER TABLE news.news
-        DELETE WHERE lower(asset) LIKE '%sugar%'
+        DELETE WHERE asset = 'Sugar'
         """
         
         print("Deleting sugar articles...")
@@ -139,7 +171,21 @@ def main():
         print(f"Current sugar articles in database: {count}")
         
         if count == 0:
-            print("No sugar articles found. Nothing to delete.")
+            print("No sugar articles found with asset='Sugar'.")
+            
+            # Check if there are articles with sugar keywords but different asset values
+            keyword_count = count_sugar_keyword_articles(client)
+            if keyword_count > 0:
+                print(f"\nHowever, found {keyword_count} articles containing sugar-related keywords in title or text.")
+                print("These articles have different asset values (not 'Sugar').")
+                print("\nPossible reasons:")
+                print("1. The sugar news fetcher hasn't been run yet to assign 'Sugar' asset to articles")
+                print("2. Articles were processed but failed the triage filter and were assigned 'General' asset")
+                print("3. Articles were saved with a different asset value due to a configuration issue")
+                print("\nTo see these articles, run: python retrieve_sugar_news.py")
+            else:
+                print("No articles with sugar-related keywords found either.")
+                print("The database may not contain any sugar-related news articles.")
             return
         
         # Delete articles

@@ -1,3 +1,4 @@
 .env
 *.csv
 ./sugar_checkpoints
+*.log

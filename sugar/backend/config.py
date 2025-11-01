@@ -4,10 +4,16 @@ from dotenv import load_dotenv
 
 # Try to load environment variables from .env file
 env_path = Path(__file__).parents[2] / '.env'
+examples_env_path = Path(__file__).parents[1] / '.env'
 print(f"Looking for .env file at: {env_path}")
+print(f"Also checking for .env file at: {examples_env_path}")
+
 if env_path.exists():
-    print("Found .env file, loading environment variables...")
+    print("Found .env file at project root, loading environment variables...")
     load_dotenv(env_path)
+elif examples_env_path.exists():
+    print("Found .env file at examples directory, loading environment variables...")
+    load_dotenv(examples_env_path)
 else:
     print("No .env file found")
 

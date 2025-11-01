@@ -82,15 +82,21 @@ class OpointAPI:
         Search for articles from a specific site or across all sites with optional text matching.
         If no site_id is provided, searches across all available sites.
         
+        CRITICAL: Supports DOUBLE FILTERING by both MEDIA_ID (via site_id) and MEDIA_TOPIC_ID (via media_topic_ids).
+        This ensures articles must match both criteria to be returned.
+        
         Args:
-            site_id (Optional[str]): ID of the site to search in, or None to search all sites
+            site_id (Optional[str]): ID of the site to search in (MEDIA_ID filter), or None to search all sites
             search_text (Optional[str]): Text to search for in articles
             language (Optional[str]): Language code to filter by (e.g., 'en', 'no')
             num_articles (int): Number of articles to retrieve
             min_score (float): Minimum relevance score threshold (e.g., 0.75)
             source (Optional[str]): Source name to filter by (e.g., 'Reuters', 'Bloomberg')
+            topic_ids (Optional[List[str]]): List of topic IDs to filter by
+            media_topic_ids (Optional[List[str]]): List of MEDIA_TOPIC_IDs to filter by (CRITICAL for double filtering)
             start_date (Optional[datetime]): Start date for article search (inclusive)
             end_date (Optional[datetime]): End date for article search (inclusive)
+            timeout (int): Request timeout in seconds
             
         Returns:
             pd.DataFrame: DataFrame containing the matched articles
@@ -109,7 +115,7 @@ class OpointAPI:
             ]
             search_parts.append(f"({' OR '.join(text_parts)})")
         
-        # Add topic ID filters if specified
+        # CRITICAL FIX: Add topic ID filters if specified
         if topic_ids:
             topic_parts = [f"topic:1{tid}" for tid in topic_ids]
             if len(topic_parts) == 1:
@@ -117,7 +123,8 @@ class OpointAPI:
             else:
                 search_parts.append(f"({' OR '.join(topic_parts)})")
 
-        # Add media/topic ID filters (media-specific) if specified
+        # CRITICAL FIX: Add MEDIA_TOPIC_ID filters (media-specific) if specified
+        # This is essential for double filtering with MEDIA_ID
         if media_topic_ids:
             media_parts = [f"topic:1{mid}" for mid in media_topic_ids]
             if len(media_parts) == 1:
@@ -269,15 +276,21 @@ class OpointAPI:
         Combined method to search for articles, optionally from a specific site.
         If no site_name is provided, searches across all sites.
         
+        CRITICAL: Supports DOUBLE FILTERING by both MEDIA_ID (via site_name -> site_id) and MEDIA_TOPIC_ID (via media_topic_ids).
+        This ensures articles must match both criteria to be returned.
+        
         Args:
-            site_name (Optional[str]): Name of the site to search for, or None to search all sites
+            site_name (Optional[str]): Name of the site to search for (resolves to MEDIA_ID), or None to search all sites
             search_text (Optional[str]): Text to search for in articles
             language (Optional[str]): Language code to filter by
             num_articles (int): Number of articles to retrieve
             min_score (float): Minimum relevance score threshold (e.g., 0.75)
             source (Optional[str]): Source name to filter by (e.g., 'Reuters', 'Bloomberg')
+            topic_ids (Optional[List[str]]): List of topic IDs to filter by
+            media_topic_ids (Optional[List[str]]): List of MEDIA_TOPIC_IDs to filter by (CRITICAL for double filtering)
             start_date (Optional[datetime]): Start date for article search (inclusive)
             end_date (Optional[datetime]): End date for article search (inclusive)
+            timeout (int): Request timeout in seconds
             
         Returns:
             pd.DataFrame: DataFrame containing the matched articles

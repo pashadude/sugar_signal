@@ -4,18 +4,7 @@ from typing import List, Dict, Any
 
 # Multilingual/contextual keyword zones as per specification
 
-# Exclusion keywords for non-sugar commodities and generic market news
-EXCLUSION_KEYWORDS = [
-    "copper", "cocoa", "cotton", "oil", "gas", "crude", "energy", "aluminum", "nickel",
-    "zinc", "lead", "tin", "wheat", "corn", "soy", "soybean", "coffee", "tea", "rubber",
-    "palm", "gold", "silver", "platinum", "palladium", "iron", "steel", "coal", "uranium",
-    "natural gas", "petroleum", "oat", "barley", "livestock", "dairy", "meat", "poultry",
-    "generic market news", "macro", "macro-economic", "inflation", "interest rate", "currency"
-]
-
-EXCLUSION_PATTERNS = [re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE) for kw in EXCLUSION_KEYWORDS]
-
-# Patterns for structured pricing data (tables, lists, bullet points)
+# Patterns for structured pricing data (tables, lists, bullet points) - used only for metadata extraction
 STRUCTURED_PATTERNS = [
     re.compile(r"(?:^|\n)[\*\-\u2022]\s*.+", re.MULTILINE),  # bullet points
     re.compile(r"(?:^|\n)\d+\.\s*.+", re.MULTILINE),         # numbered lists
@@ -23,6 +12,25 @@ STRUCTURED_PATTERNS = [
     re.compile(r"(?:^|\n)(?:Contract|Date|Price|Volume|Index)\s*[:\-]\s*.+", re.IGNORECASE),  # key-value lines
 ]
 
+# Sugar-related keywords for filtering - only these are used for the filtering decision
+SUGAR_KEYWORDS = [
+    "sugar", "sugarcane", "sugar cane", "sugar beet", "molasses", "sweetener", "sucrose",
+    "glucose", "fructose", "saccharose", "raffinose", "whites", "NY11", "LSU", "LON No. 5",
+    "raw sugar", "refined sugar", "brown sugar", "table sugar",
+    # Multilingual - European languages
+    "sucre", "azúcar", "zucchero", "açúcar", "Zucker", "sukker", "soker", "cukor",
+    "cukier", "cukr", "sahara", "ζάχαρη", "cukor", "soker", "sugar", "sukker",
+    # Multilingual - Asian languages
+    "शक्कर", "चीनी", "চিনি", "சர்க்கரை", "చక్కరో", "ಸಕ್ಕರೆ", "പഞ്ചശര", "සීනි",
+    "شکر", "سكر", "शक्कर", "चीनी", "gula", "gularen", "gula aren", "gula merah",
+    "น้ำตาล", "น้ำตาลทราย", "อ้อย", "ตะกั่ว", "茶糖", "砂糖", "糖", "설탕", "설탕물",
+    # Multilingual - Other major languages
+    "şeker", "şekerli", "cukier", "cukrowy", "сахар", "сахарный", "цукор", "цукровий",
+    "mishukozi", "asali", "sukari", "chini", "tumbura", "sukali", "sukari", "shakar",
+    "shakkar", "misri", "khanda", "gud", "jaggery", "panela", "piloncillo", "rapadura"
+]
+
+# Context zone keywords - used only for metadata extraction, not for filtering
 KEYWORDS = {
     "market": [
         "futures", "contract", "price", "market", "export", "exports", "exporter",
@@ -40,9 +48,6 @@ KEYWORDS = {
         "Brazil", "Brasil", "Brazilian", "Center-South", "Centro-Sul", "India",
         "Indian", "Thailand", "Thai", "EU", "European Union", "UNICA",
         "International Sugar Organization", "ISO", "USDA", "Africa", "Asia", "Australia", "China", "Indonesia", "Pakistan", "Mexico", "Philippines", "Vietnam", "Russia", "Ukraine", "USA", "United States", "America"
-    ],
-    "main": [
-        "sugar", "sugarcane", "sugar cane", "sugar beet", "molasses", "sweetener", "sucrose", "glucose", "fructose", "saccharose", "raffinose", "whites", "NY11", "LSU", "LON No. 5", "raw sugar", "refined sugar", "brown sugar", "table sugar"
     ]
 }
 
@@ -60,6 +65,10 @@ def compile_keyword_patterns(keywords: List[str]) -> List[re.Pattern]:
         patterns.append(re.compile(kw_pattern, re.IGNORECASE))
     return patterns
 
+# Compile patterns for sugar keywords (used for filtering)
+SUGAR_KEYWORD_PATTERNS = compile_keyword_patterns(SUGAR_KEYWORDS)
+
+# Compile patterns for context zones (used only for metadata extraction)
 KEYWORD_PATTERNS = {zone: compile_keyword_patterns(words) for zone, words in KEYWORDS.items()}
 
 def text_matches_keywords(text: str, patterns: List[re.Pattern]) -> bool:
@@ -68,126 +77,87 @@ def text_matches_keywords(text: str, patterns: List[re.Pattern]) -> bool:
             return True
     return False
 
-# DEBUG LOGGING: Print detailed triage info for each article
+# Monthly stats logging is preserved
 import logging
-logger = logging.getLogger("sugar_triage_debug")
-logger.setLevel(logging.DEBUG)
-if not logger.hasHandlers():
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
 def triage_filter(
     text: str,
     title: str = None,
     media_topic_passed: bool = True,
     min_length: int = 20,
-    max_length: int = None
+    max_length: int = None,
+    is_part: bool = False,
+    part_number: int = None
 ) -> Dict[str, Any]:
     """
-    Applies Sugar Sentiment triage filtering logic.
+    Applies simplified Sugar Sentiment triage filtering logic.
+    
+    The filter now works as follows:
+    1. Only checks for sugar-related keywords in title or text for filtering decision
+    2. If no sugar-related keywords are found, the article is excluded
+    3. Context zones, structured pricing, and name-entity recognition are used only for metadata extraction
+    4. These features do not influence the filtering decision
+    5. Enhanced to handle article parts with appropriate logging
+    
     Args:
         text: Input text (str).
         title: Input title (str, optional).
         media_topic_passed: Whether IPTC MediaTopic pre-filtering passed (bool).
         min_length: Minimum text length for quality control.
         max_length: Maximum text length for quality control.
+        is_part: Whether this text is a part of a larger article (bool).
+        part_number: Which part this is (int, optional).
     Returns:
-        Dict with filter result and matched zones.
+        Dict with filter result and metadata for matched zones.
     """
-    # Only log full text if not running as part of sugar_news_fetcher CLI
+    # Part information for monthly stats
     import os
-    if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-        logger.debug("TRIAGE INPUT: TEXT=%r, TITLE=%r", text, title)
-        logger.debug("STAGE: INPUT | TEXT: %r, TITLE: %r", text, title)
-    # --- Begin detailed per-stage logging ---
+    part_info = f" (Part {part_number})" if is_part and part_number else " (Part)" if is_part else ""
     normalized_text = text
     normalized_title = title if title else ""
     # Combine title and text for keyword matching
     combined_content = f"{title} {text}" if title else text
-    if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-        logger.debug("STAGE: INPUT | COMBINED: %r", combined_content)
+    # Log part processing information for monthly stats
+    if is_part:
+        logger.info(f"Processing article part{part_info} with {len(text)} characters")
+    
     result = {
         "passed": False,
         "reason": "",
         "matched_zones": [],
         "matched_keywords": [],
-        "extracted_sugar_pricing": []
+        "extracted_sugar_pricing": [],
+        "is_part": is_part,
+        "part_number": part_number
     }
 
     # Quality controls
     if not media_topic_passed:
         result["reason"] = "IPTC MediaTopic pre-filtering failed"
-        if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-        else:
-            logger.debug("REJECT: %s", result["reason"])
         return result
     if not isinstance(text, str) or not text.strip():
         result["reason"] = "Text is empty or not a string"
-        if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-        else:
-            logger.debug("REJECT: %s", result["reason"])
         return result
     if len(text) < min_length:
         result["reason"] = f"Text too short (<{min_length} chars)"
-        if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-        else:
-            logger.debug("REJECT: %s", result["reason"])
         return result
     if max_length is not None and len(text) > max_length:
         result["reason"] = f"Text too long (>{max_length} chars)"
-        if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-        else:
-            logger.debug("REJECT: %s", result["reason"])
         return result
 
-    # Check for main keywords (must match at least one) in combined title and text
-    main_match = text_matches_keywords(combined_content, KEYWORD_PATTERNS["main"])
+    # SIMPLIFIED FILTERING LOGIC:
+    # Only check for sugar-related keywords in title or text for filtering decision
+    sugar_match = text_matches_keywords(combined_content, SUGAR_KEYWORD_PATTERNS)
     
-    # If no main keywords, check for exclusion keywords
-    if not main_match:
-        for pat in EXCLUSION_PATTERNS:
-            if pat.search(combined_content):
-                result["reason"] = f"Excluded by exclusion keyword: '{pat.pattern}'"
-                if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-                    logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-                else:
-                    logger.debug("REJECT: %s", result["reason"])
-                return result
-        
-        # If no main keywords and no exclusion keywords, reject
-        result["reason"] = "No main sugar-related keywords found"
-        if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-        else:
-            logger.debug("REJECT: %s", result["reason"])
+    if not sugar_match:
+        result["reason"] = "No sugar-related keywords found"
         return result
     
-    # If main keywords found, check for secondary filter (event+agriculture)
-    event_match = text_matches_keywords(combined_content, KEYWORD_PATTERNS["event"])
-    agri_match = (
-        text_matches_keywords(combined_content, KEYWORD_PATTERNS["market"]) or
-        text_matches_keywords(combined_content, KEYWORD_PATTERNS["supply_chain"])
-    )
-    if event_match and agri_match:
-        result["reason"] = "Passed secondary filter: event+agriculture context"
-        if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("PASS: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-        else:
-            logger.debug("PASS: %s", result["reason"])
-        result["passed"] = True
-        result["matched_zones"] = []
-        result["matched_keywords"] = []
-        result["extracted_sugar_pricing"] = []
-        return result
+    # If sugar keywords are found, accept the article
 
-    # Check context zones
+    # EXTRACT METADATA (only for enrichment, not for filtering):
+    
+    # 1. Extract context zones metadata
     matched_zones = []
     matched_keywords = []
     for zone in ["market", "supply_chain", "event", "region"]:
@@ -197,43 +167,28 @@ def triage_filter(
             if pat.search(combined_content):
                 matched_zones.append(zone)
                 matched_keywords.append(kw)
-                logger.debug("STAGE: CONTEXT_ZONE | ZONE: %s | MATCHED: %s", zone, kw)
                 zone_matched = True
                 break  # Only need one match per zone
-        if not zone_matched:
-            logger.debug("STAGE: CONTEXT_ZONE | ZONE: %s | MATCHED: None", zone)
-
-    if not matched_zones:
-        result["reason"] = "No context zone keywords found"
-        if not any("sugar_news_fetcher" in arg for arg in sys.argv):
-            logger.debug("REJECT: %s | TEXT: %r, TITLE: %r", result["reason"], normalized_text, normalized_title)
-        else:
-            logger.debug("REJECT: %s", result["reason"])
-        return result
-
-    # Detect and extract structured sugar pricing data
+    
+    # 2. Extract structured pricing metadata
     extracted_sugar_pricing = []
     for struct_pat in STRUCTURED_PATTERNS:
         for match in struct_pat.finditer(text):
             line = match.group(0)
-            # Only keep lines with sugar-related main keywords
-            if text_matches_keywords(line, KEYWORD_PATTERNS["main"]):
-                # Exclude if line contains non-sugar commodity
-                if not any(pat.search(line) for pat in EXCLUSION_PATTERNS):
-                    extracted_sugar_pricing.append(line.strip())
-                    logger.debug("STAGE: STRUCTURED_PRICING | MATCHED: %r", line.strip())
+            # Only keep lines with sugar-related keywords
+            if text_matches_keywords(line, SUGAR_KEYWORD_PATTERNS):
+                extracted_sugar_pricing.append(line.strip())
+    
     # If structured sugar pricing data found, add to result
     if extracted_sugar_pricing:
         result["extracted_sugar_pricing"] = extracted_sugar_pricing
-    else:
-        logger.debug("STAGE: STRUCTURED_PRICING | MATCHED: None")
 
-    # Passed all filters
+    # Article passed the sugar keyword filter - set result and add metadata
     result["passed"] = True
-    result["matched_zones"] = matched_zones
-    result["matched_keywords"] = matched_keywords
-    result["reason"] = "Passed all triage filters"
-    logger.debug("PASS: matched_zones=%r matched_keywords=%r extracted_sugar_pricing=%r", matched_zones, matched_keywords, extracted_sugar_pricing)
+    result["matched_zones"] = matched_zones  # Context zones metadata
+    result["matched_keywords"] = matched_keywords  # Matched keywords metadata
+    result["extracted_sugar_pricing"] = extracted_sugar_pricing  # Structured pricing metadata
+    result["reason"] = "Passed sugar keyword filter"
     return result
 
 # Example usage:
